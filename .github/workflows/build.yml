@@ -1,0 +1,76 @@
+
+name: Build FIREROZ Doctor APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'Backend API URL (https://...)'
+        required: false
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        env:
+          VITE_API_URL: ${{ github.event.inputs.api_url || secrets.API_URL }}
+          VITE_WS_URL: ${{ secrets.WS_URL }}
+        run: npm run build
+
+      - name: Add Android platform
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Generate launcher icons from logo
+        working-directory: .
+        run: |
+          pip install pillow
+          python3 - <<'PY'
+          from PIL import Image
+          import os
+          src = Image.open("resources/icon.png").convert("RGBA")
+          sizes = {"mdpi":48,"hdpi":72,"xhdpi":96,"xxhdpi":144,"xxxhdpi":192}
+          for d, s in sizes.items():
+              p = f"app/android/app/src/main/res/mipmap-{d}"
+              os.makedirs(p, exist_ok=True)
+              im = src.resize((s, s), Image.LANCZOS)
+              for n in ("ic_launcher.png", "ic_launcher_round.png", "ic_launcher_foreground.png"):
+                  im.save(f"{p}/{n}")
+          import shutil
+          shutil.rmtree("app/android/app/src/main/res/mipmap-anydpi-v26", ignore_errors=True)
+          PY
+
+      - name: Build debug APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FIREROZ-Doctor-debug-apk
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          
