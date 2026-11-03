@@ -1,0 +1,38 @@
+
+name: Unzip project
+
+# Upload fireroz-doctor.zip to the repo root.
+on:
+  push:
+    paths: ['fireroz-doctor.zip']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract zip
+        run: |
+          test -f fireroz-doctor.zip || { echo "fireroz-doctor.zip not found in repo root"; exit 1; }
+          rm -rf /tmp/extract && mkdir /tmp/extract
+          unzip -q fireroz-doctor.zip -d /tmp/extract
+
+          SRC=/tmp/extract
+          [ -d /tmp/extract/fireroz-doctor ] && SRC=/tmp/extract/fireroz-doctor
+
+          rsync -a --exclude '.github' "$SRC"/ ./
+          rm -f fireroz-doctor.zip
+
+      - name: Commit extracted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "Nothing to commit" || git commit -m "Unzip FIREROZ Doctor project"
+          git push
+          
