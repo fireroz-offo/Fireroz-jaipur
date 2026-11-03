@@ -1,0 +1,2 @@
+{ "appId": "com.fireroz.doctor", "appName": "FIREROZ Doctor", "webDir": "dist",
+  "android": { "allowMixedContent": false } }
